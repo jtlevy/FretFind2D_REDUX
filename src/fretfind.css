@@ -37,6 +37,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
     margin: 0;
@@ -372,3 +373,61 @@ p.dev {
     color: var(--muted);
     font-size: .85rem;
 }
+
+/* ---------- saved fretboards ---------- */
+.header-tools { display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; }
+.saved-picker { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.saved-picker label {
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+select {
+    max-width: 16rem;
+    padding: .4rem .6rem;
+    background: var(--field);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font: 14px var(--sans);
+}
+select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.status { margin-left: .7rem; font-size: .85rem; color: var(--accent); }
+
+dialog {
+    width: min(92vw, 380px);
+    padding: 1.2rem 1.3rem 1.1rem;
+    background: var(--card);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .3);
+}
+dialog::backdrop { background: rgba(20, 15, 5, .5); }
+dialog h2 { margin: 0 0 .9rem; font: 600 1.15rem/1.2 var(--serif); }
+dialog label {
+    display: block;
+    margin-bottom: .3rem;
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+dialog input[type="text"] { width: 100%; font-family: var(--sans); font-size: 15px; }
+.form-note { min-height: 1.3em; margin: .5rem 0 0; font-size: .82rem; color: var(--muted); }
+.form-note.error { color: #c0392b; font-weight: 600; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: .9rem; }
+button.secondary { background: transparent; color: var(--accent); }
+button.secondary:hover { background: var(--accent-soft); filter: none; }
+
+/* rename / delete */
+button.small { padding: .3rem .65rem; font-size: .8rem; }
+button:disabled { opacity: .4; cursor: not-allowed; filter: none; }
+button.danger { background: #c0392b; border-color: #c0392b; color: #fff; }
+button.secondary.danger { background: transparent; color: #c0392b; }
+button.secondary.danger:hover:not(:disabled) { background: rgba(192, 57, 43, .12); }
+#deleteMessage { margin: 0; }
