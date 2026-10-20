@@ -326,22 +326,30 @@ var getGuitar = function() {
     };
 };
 
-var getLink = function() {
-    var params = {};
-    $('#worksheet').find('input[id], textarea[id]').each(function(index,item){
-        var id = $(item).attr('id');
-        params[id] = $(item).val();
+// ---- Form state -------------------------------------------------------
+// Everything needed to recreate a design: every text input / textarea with an
+// id, the per-string lists, the unit, which tab is selected in each group of
+// alternatives, and the display checkboxes.
+var DISPLAY_IDS = ['showFretboardEdges', 'showStrings', 'extendFrets', 'showBoundingBox', 'showMetas'];
+
+var getState = function() {
+    var state = {};
+    $('#worksheet').find('input[id], textarea[id]').not(':checkbox').each(function(_, item) {
+        state[item.id] = item.value;
     });
-    params.t = ff.getTuning('tuning');
-    params.il = getLengths('ilengths');
-    params.ig = getGauges('igauges');
-    params.u = $("input:checked[name='units']").val();
-    params.sl = ff.getAlt('length');
-    params.ns = ff.getAlt('spacing');
-    params.scale = ff.getAlt('scale');
-    params.o = ff.getAlt('overhang');
-    var location = window.location.toString().replace(/#.*/,'');
-    return location+'#'+$.param(params);
+    state.t = ff.getTuning('tuning');
+    state.il = getLengths('ilengths');
+    state.ig = getGauges('igauges');
+    state.u = $("input:checked[name='units']").val() || 'in';
+    state.sl = ff.getAlt('length');
+    state.ns = ff.getAlt('spacing');
+    state.scale = ff.getAlt('scale');
+    state.o = ff.getAlt('overhang');
+    state.d = {};
+    for (var i = 0; i < DISPLAY_IDS.length; i++) {
+        state.d[DISPLAY_IDS[i]] = !!document.getElementById(DISPLAY_IDS[i]).checked;
+    }
+    return state;
 };
 
 //surface for drawing fretboard
@@ -354,27 +362,279 @@ var onChange = function() {
         guitar = ff.fretGuitar(guitar);
         ff.drawGuitar(paper, guitar, getDisplayOptions());
         $('#tables').html(ff.getTable(guitar));
-        $('#bookmark').attr('href', getLink());
+    }
+};
+
+// Click the tab with this id inside one group of alternatives. Scoped to the
+// group because two groups both use the id "equal".
+var selectAlt = function(group_id, alt_id) {
+    if (!alt_id) { return; }
+    $('#' + group_id).children('dt').each(function(_, item) {
+        if (item.id === alt_id) { $(item).click(); }
+    });
+};
+
+// Put a state object (from getState, or an old shared link) back into the form.
+// Does not redraw; the caller calls onChange() afterwards.
+var applyState = function(state) {
+    var wasProcessing = processChanges;
+    processChanges = false;
+    try {
+        // values in a state are already in its own unit, so adopt that unit
+        // first and nothing gets converted a second time
+        currentUnit = MM_PER_UNIT[state['u']] ? state['u'] : 'in';
+        $('#worksheet').find('input[id], textarea[id]').not(':checkbox').each(function(_, item) {
+            if (state.hasOwnProperty(item.id)) {
+                $(item).val(state[item.id]);
+            }
+        });
+        setLengths('ilengths', 'numStrings', onChange, (state['il'] || []));
+        setGauges('igauges', 'numStrings', onChange, (state['ig'] || []));
+        ff.setTuning('tuning', 'numStrings', onChange, (state['t'] || []));
+        $("input[name='units']").each(function(_, radio) {
+            radio.checked = (radio.value === currentUnit);
+        });
+        selectAlt('length', state['sl']);
+        selectAlt('spacing', state['ns']);
+        selectAlt('scale', state['scale']);
+        selectAlt('overhang', state['o']);
+        if (state['d']) {
+            for (var i = 0; i < DISPLAY_IDS.length; i++) {
+                if (state['d'].hasOwnProperty(DISPLAY_IDS[i])) {
+                    document.getElementById(DISPLAY_IDS[i]).checked = !!state['d'][DISPLAY_IDS[i]];
+                }
+            }
+        }
+        updateUnitLabels();
+    } finally {
+        processChanges = wasProcessing;
     }
 };
 
 var updateFormFromHash = function() {
-    var params = $.deparam.fragment();
-    currentUnit = MM_PER_UNIT[params['u']] ? params['u'] : 'in';
-    $('#worksheet').find('input[id], textarea[id]').each(function(index,item){
-        var id = $(item).attr('id');
-        if (params.hasOwnProperty(id)){
-            $(item).val(params[id]);
-        }
+    applyState($.deparam.fragment());
+};
+
+// ---- Saved fretboards (localStorage) ------------------------------------
+// One JSON object under a single key:
+//   {"version":1,"fretboards":[{"name":"...","savedAt":"ISO date","state":{...}}, ...]}
+var STORAGE_KEY = 'fretfind2d.fretboards';
+
+var readSaved = function() {
+    try {
+        var raw = window.localStorage.getItem(STORAGE_KEY);
+        if (!raw) { return []; }
+        var data = JSON.parse(raw);
+        return (data && Array.isArray(data.fretboards)) ? data.fretboards : [];
+    } catch (e) {
+        return [];
+    }
+};
+var writeSaved = function(list) {
+    try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({version: 1, fretboards: list}));
+        return true;
+    } catch (e) {
+        return false;   // storage disabled or full
+    }
+};
+var findSaved = function(list, name) {
+    for (var i = 0; i < list.length; i++) {
+        if (list[i].name === name) { return i; }
+    }
+    return -1;
+};
+
+// rebuild the header dropdown; hide it entirely when nothing is saved
+var refreshSavedList = function(selectedName) {
+    var list = readSaved();
+    var select = document.getElementById('savedFretboards');
+    while (select.firstChild) { select.removeChild(select.firstChild); }
+    var first = document.createElement('option');
+    first.value = '';
+    first.textContent = 'Load a saved fretboard\u2026';
+    select.appendChild(first);
+    var names = [];
+    for (var i = 0; i < list.length; i++) { names.push(list[i].name); }
+    names.sort(function(a, b) { return a.localeCompare(b); });
+    for (var j = 0; j < names.length; j++) {
+        var opt = document.createElement('option');
+        opt.value = names[j];
+        opt.textContent = names[j];   // textContent: names are user input
+        select.appendChild(opt);
+    }
+    select.value = selectedName || '';
+    document.getElementById('savedPicker').hidden = (names.length === 0);
+};
+
+var showDialog = function(d) {
+    if (typeof d.showModal === 'function') { d.showModal(); }
+    else { d.setAttribute('open', 'open'); }
+};
+var hideDialog = function(d) {
+    if (typeof d.close === 'function') { d.close(); }
+    else { d.removeAttribute('open'); }
+};
+
+var initSavedFretboards = function() {
+    var select = document.getElementById('savedFretboards');
+    var renameBtn = document.getElementById('renameFretboard');
+    var deleteBtn = document.getElementById('deleteFretboard');
+    var status = document.getElementById('saveStatus');
+    var statusTimer = null;
+
+    // save dialog
+    var saveDialog = document.getElementById('saveDialog');
+    var nameInput = document.getElementById('fretboardName');
+    var saveNote = document.getElementById('saveNote');
+    // rename dialog
+    var renameDialog = document.getElementById('renameDialog');
+    var renameInput = document.getElementById('renameName');
+    var renameNote = document.getElementById('renameNote');
+    // delete dialog
+    var deleteDialog = document.getElementById('deleteDialog');
+    var deleteMessage = document.getElementById('deleteMessage');
+    var deleteNote = document.getElementById('deleteNote');
+
+    var say = function(message) {
+        status.textContent = message;
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(function() { status.textContent = ''; }, 4000);
+    };
+    var setNote = function(el, message, isError) {
+        el.className = isError ? 'form-note error' : 'form-note';
+        el.textContent = message;
+    };
+    // Rename / Delete only make sense while a saved fretboard is selected
+    var updateManageButtons = function() {
+        var none = (select.value === '');
+        renameBtn.disabled = none;
+        deleteBtn.disabled = none;
+    };
+    var refresh = function(name) {
+        refreshSavedList(name);
+        updateManageButtons();
+    };
+
+    refresh('');
+
+    // ---- save
+    var updateSaveNote = function() {
+        var name = $.trim(nameInput.value);
+        setNote(saveNote, (name && findSaved(readSaved(), name) !== -1)
+            ? 'A fretboard with this name already exists. Saving will replace it.' : '', false);
+    };
+    $('#saveFretboard').click(function() {
+        nameInput.value = select.value;     // pre-fill with the loaded name
+        updateSaveNote();
+        showDialog(saveDialog);
+        nameInput.focus();
+        nameInput.select();
     });
-    setLengths('ilengths','numStrings', onChange, (params['il'] || []));
-    setGauges('igauges', 'numStrings', onChange, (params['ig'] || []));
-    ff.setTuning('tuning','numStrings', onChange, (params['t'] || []));
-    $("input[name='units']").filter("[value='"+(params['u']||'in')+"']").click();
-    $('#'+params.sl).click();
-    $('#'+params.ns).click();
-    $('#'+params.scale).click();
-    $('#'+params.o).click();
+    $('#saveCancel').click(function() { hideDialog(saveDialog); });
+    $(nameInput).bind('input keyup', updateSaveNote);
+
+    $('#saveForm').submit(function(event) {
+        event.preventDefault();
+        var name = $.trim(nameInput.value);
+        if (!name) {
+            setNote(saveNote, 'Please name your fretboard.', true);
+            nameInput.focus();
+            return;
+        }
+        var list = readSaved();
+        var record = {name: name, savedAt: new Date().toISOString(), state: getState()};
+        var at = findSaved(list, name);
+        if (at === -1) { list.push(record); } else { list[at] = record; }
+        if (!writeSaved(list)) {
+            setNote(saveNote, 'Could not save. Your browser may have storage turned off.', true);
+            return;
+        }
+        hideDialog(saveDialog);
+        refresh(name);
+        say('Saved \u201c' + name + '\u201d');
+    });
+
+    // ---- load
+    $(select).change(function() {
+        updateManageButtons();
+        var at = findSaved(readSaved(), this.value);
+        if (at === -1) { return; }          // the placeholder was chosen
+        applyState(readSaved()[at].state);
+        onChange();
+    });
+
+    // ---- rename
+    var updateRenameNote = function() {
+        var name = $.trim(renameInput.value);
+        var clash = (name !== '' && name !== select.value && findSaved(readSaved(), name) !== -1);
+        setNote(renameNote, clash ? 'A fretboard with this name already exists.' : '', clash);
+    };
+    $(renameBtn).click(function() {
+        if (select.value === '') { return; }
+        renameInput.value = select.value;
+        setNote(renameNote, '', false);
+        showDialog(renameDialog);
+        renameInput.focus();
+        renameInput.select();
+    });
+    $('#renameCancel').click(function() { hideDialog(renameDialog); });
+    $(renameInput).bind('input keyup', updateRenameNote);
+
+    $('#renameForm').submit(function(event) {
+        event.preventDefault();
+        var oldName = select.value;
+        var name = $.trim(renameInput.value);
+        if (!name) {
+            setNote(renameNote, 'Please name your fretboard.', true);
+            renameInput.focus();
+            return;
+        }
+        if (name === oldName) { hideDialog(renameDialog); return; }    // nothing to do
+        var list = readSaved();
+        var at = findSaved(list, oldName);
+        if (at === -1) { hideDialog(renameDialog); refresh(''); return; }
+        if (findSaved(list, name) !== -1) {
+            setNote(renameNote, 'A fretboard with this name already exists.', true);
+            renameInput.focus();
+            return;
+        }
+        list[at].name = name;
+        if (!writeSaved(list)) {
+            setNote(renameNote, 'Could not save. Your browser may have storage turned off.', true);
+            return;
+        }
+        hideDialog(renameDialog);
+        refresh(name);
+        say('Renamed to \u201c' + name + '\u201d');
+    });
+
+    // ---- delete
+    var pendingDelete = '';
+    $(deleteBtn).click(function() {
+        if (select.value === '') { return; }
+        pendingDelete = select.value;
+        deleteMessage.textContent = 'Delete \u201c' + pendingDelete + '\u201d? This can\u2019t be undone.';
+        setNote(deleteNote, '', false);
+        showDialog(deleteDialog);
+    });
+    $('#deleteCancel').click(function() { hideDialog(deleteDialog); });
+
+    $('#deleteForm').submit(function(event) {
+        event.preventDefault();
+        var list = readSaved();
+        var at = findSaved(list, pendingDelete);
+        if (at !== -1) {
+            list.splice(at, 1);
+            if (!writeSaved(list)) {
+                setNote(deleteNote, 'Could not delete. Your browser may have storage turned off.', true);
+                return;
+            }
+        }
+        hideDialog(deleteDialog);
+        refresh('');
+        say('Deleted \u201c' + pendingDelete + '\u201d');
+    });
 };
 
 $(document).ready(function() {
@@ -396,6 +656,7 @@ $(document).ready(function() {
     updateUnitLabels();
     processChanges = true;
     onChange();
+    initSavedFretboards();
 
     var isFileSaverSupported = false;
     try {
@@ -481,7 +742,15 @@ $(document).ready(function() {
 <header class="site-header">
     <div class="top">
         <h1>FretFind<span>2D</span></h1>
-        <a class="repo" href="http://github.com/acspike/FretFind2D">Fork on GitHub</a>
+        <div class="header-tools">
+            <div class="saved-picker" id="savedPicker" hidden>
+                <label for="savedFretboards">My fretboards</label>
+                <select id="savedFretboards"></select>
+                <button type="button" class="secondary small" id="renameFretboard" disabled="disabled">Rename</button>
+                <button type="button" class="secondary small danger" id="deleteFretboard" disabled="disabled">Delete</button>
+            </div>
+            <a class="repo" href="http://github.com/acspike/FretFind2D">Fork on GitHub</a>
+        </div>
     </div>
     <p>
 FretFind2D is a two dimensional fretboard design tool.
@@ -888,7 +1157,7 @@ Fret  P.D.    Fret  P.D.
             <section class="card export-card">
                 <h2>Export</h2>
                 <dl id="downloads">
-                    <dt>Link</dt><dd><a href="#" id="bookmark">Link to this design</a></dd>
+                    <dt>Fretboard</dt><dd><button type="button" id="saveFretboard">Save your Fretboard</button><span class="status" id="saveStatus" role="status"></span></dd>
                 </dl>
             </section>
         </div>
@@ -898,6 +1167,41 @@ Fret  P.D.    Fret  P.D.
         </section>
     </div>
 </div>
+<dialog id="saveDialog" aria-labelledby="saveDialogTitle">
+    <form id="saveForm" autocomplete="off">
+        <h2 id="saveDialogTitle">Save your fretboard</h2>
+        <label for="fretboardName">Name your fretboard</label>
+        <input type="text" id="fretboardName" maxlength="60" />
+        <p class="form-note" id="saveNote" role="status"></p>
+        <div class="dialog-actions">
+            <button type="button" class="secondary" id="saveCancel">Cancel</button>
+            <button type="submit">Save</button>
+        </div>
+    </form>
+</dialog>
+<dialog id="renameDialog" aria-labelledby="renameDialogTitle">
+    <form id="renameForm" autocomplete="off">
+        <h2 id="renameDialogTitle">Rename fretboard</h2>
+        <label for="renameName">New name</label>
+        <input type="text" id="renameName" maxlength="60" />
+        <p class="form-note" id="renameNote" role="status"></p>
+        <div class="dialog-actions">
+            <button type="button" class="secondary" id="renameCancel">Cancel</button>
+            <button type="submit">Rename</button>
+        </div>
+    </form>
+</dialog>
+<dialog id="deleteDialog" aria-labelledby="deleteDialogTitle">
+    <form id="deleteForm">
+        <h2 id="deleteDialogTitle">Delete fretboard</h2>
+        <p id="deleteMessage"></p>
+        <p class="form-note" id="deleteNote" role="status"></p>
+        <div class="dialog-actions">
+            <button type="button" class="secondary" id="deleteCancel" autofocus="autofocus">Cancel</button>
+            <button type="submit" class="danger">Delete</button>
+        </div>
+    </form>
+</dialog>
 <p class="dev">The latest version in development is available on <a href="https://acspike.github.io/FretFind2D/src/fretfind.html">GitHub</a>.</p>
 </body>
 </html>
