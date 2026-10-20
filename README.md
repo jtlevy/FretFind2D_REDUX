@@ -5,6 +5,7 @@ FretFind2D is a fretboard designer for microtonal and multi-scaled stringed inst
 ## Using Online
 
 The [latest version of FretFind2D](https://acspike.github.io/FretFind2D/src/fretfind.html) is available for your use online. 
+but... my version is here: [FretFind2D_REDUX] (https://https://jtlevy.github.io//FretFind2D/src/fretfind.html)
 
 ## Using Offline
 
