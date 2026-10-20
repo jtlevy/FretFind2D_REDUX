@@ -2,7 +2,7 @@
 <head>
 <!-- 
 
-    Copyright (C) 2004, 2005, 2010 Aaron C Spike 
+    Copyright (C) 2004, 2005, 2010 Aaron C Spike, forked and modified by Joshua Levy 2026 
     
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -33,6 +33,49 @@
 <script type="text/javascript">
 //<![CDATA[
 
+// ---- Unit conversion (self-contained: needs nothing new from fretfind.js) ----
+// Text inputs (by id) that hold lengths. Ratios (pDist, ipDist), counts,
+// tunings and the scale text are deliberately not listed.
+var LENGTH_FIELD_IDS = ['len', 'lenF', 'lenL', 'nutWidth', 'bridgeWidth',
+                        'oE', 'oN', 'oB', 'oL', 'oF', 'oNL', 'oNF', 'oBL', 'oBF'];
+// Containers whose child inputs are per-string lengths
+var LENGTH_GROUP_IDS = ['ilengths', 'igauges'];
+var MM_PER_UNIT = {'in': 25.4, 'cm': 10, 'mm': 1};
+
+// the unit the length fields are currently expressed in
+var currentUnit = 'in';
+
+var convertLength = function(value, fromUnit, toUnit) {
+    return value * MM_PER_UNIT[fromUnit] / MM_PER_UNIT[toUnit];
+};
+// strip float noise (30in -> 762mm, not 762.0000000001) but keep enough
+// digits that in -> mm -> in round trips cleanly
+var tidy = function(x) {
+    return parseFloat(x.toPrecision(10));
+};
+var convertField = function(el, fromUnit, toUnit) {
+    var v = parseFloat(el.value);
+    if (isNaN(v)) { return; }
+    el.value = tidy(convertLength(v, fromUnit, toUnit));
+};
+var onUnitChange = function() {
+    var newUnit = $("input:checked[name='units']").val() || 'in';
+    if (newUnit === currentUnit || !MM_PER_UNIT[newUnit] || !MM_PER_UNIT[currentUnit]) {
+        return;
+    }
+    var i;
+    for (i = 0; i < LENGTH_FIELD_IDS.length; i++) {
+        var el = document.getElementById(LENGTH_FIELD_IDS[i]);
+        if (el) { convertField(el, currentUnit, newUnit); }
+    }
+    for (i = 0; i < LENGTH_GROUP_IDS.length; i++) {
+        $('#' + LENGTH_GROUP_IDS[i] + ' > input').each(function(_, item) {
+            convertField(item, currentUnit, newUnit);
+        });
+    }
+    currentUnit = newUnit;
+};
+
 var getLengths = function(id) {
     var lengths = [];
     $('#'+id+' > input').each(function(_,item){lengths.push(parseFloat(item.value));});
@@ -45,7 +88,7 @@ var setLengths = function(length_id, string_count_id, change_callback, lengths) 
     }
     var output = '';
     for (var i=0; i<strings; i++) {
-        output += 'string '+(i+1)+': <input type="text" value="'+(lengths[i] || 25+(i*.5))+'" /><br />';
+        output += 'string '+(i+1)+': <input type="text" value="'+(lengths[i] || tidy(convertLength(25+(i*.5), 'in', currentUnit)))+'" /><br />';
     }
     $('#'+length_id).html(output);
     $('#'+length_id+' > input').change(change_callback);
@@ -310,6 +353,7 @@ var onChange = function() {
 
 var updateFormFromHash = function() {
     var params = $.deparam.fragment();
+    currentUnit = MM_PER_UNIT[params['u']] ? params['u'] : 'in';
     $('#worksheet').find('input[id], textarea[id]').each(function(index,item){
         var id = $(item).attr('id');
         if (params.hasOwnProperty(id)){
@@ -334,6 +378,7 @@ $(document).ready(function() {
       setLengths('ilengths','numStrings', onChange);
       setGauges('igauges', 'numStrings', onChange);
     });
+    $("input[name='units']").change(onUnitChange);
     $('#worksheet').find('input, textarea').change(onChange);
     ff.setTuning('tuning', 'numStrings', onChange);
     setLengths('ilengths','numStrings', onChange);
@@ -656,7 +701,7 @@ Fret  P.D.    Fret  P.D.
             <p>
                Enter the thickness of each string, with String 1 being the thinnest/highest. 
                For example, a standard set of electric guitar strings, in inches, would be 0.010, 0.013, 0.017, 0.026, 0.036, 0.046. 
-               If you are using metric, please convert your string gauges to metric as well.
+               Gauges use the selected units, and are converted automatically when you change units.
             </p>
         </dd>
         
