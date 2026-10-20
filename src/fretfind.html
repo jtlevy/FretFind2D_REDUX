@@ -1,4 +1,5 @@
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html>
+<html lang="en">
 <head>
 <!-- 
 
@@ -19,6 +20,7 @@
     
 -->
 <title>FretFind2D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="keywords" lang="en" content="FretFind, stringed instrument, luthier, fret, guitar, fret placement calculator" />
 <meta name="description" lang="en" content="FretFind2d models fretboards as a system of line segments on a two dimensional plane to design freboards with multiple scale lenghts and microtonal scales." />
 <link rel="stylesheet" type="text/css" href="fretfind.css" />
@@ -74,6 +76,11 @@ var onUnitChange = function() {
         });
     }
     currentUnit = newUnit;
+};
+
+// keeps the unit label shown beside each length field in sync
+var updateUnitLabels = function() {
+    $('.u').text($("input:checked[name='units']").val() || 'in');
 };
 
 var getLengths = function(id) {
@@ -379,12 +386,14 @@ $(document).ready(function() {
       setGauges('igauges', 'numStrings', onChange);
     });
     $("input[name='units']").change(onUnitChange);
+    $("input[name='units']").change(updateUnitLabels);
     $('#worksheet').find('input, textarea').change(onChange);
     ff.setTuning('tuning', 'numStrings', onChange);
     setLengths('ilengths','numStrings', onChange);
     setGauges('igauges', 'numStrings', onChange);
     paper = Raphael('diagram',200,800);
     updateFormFromHash();
+    updateUnitLabels();
     processChanges = true;
     onChange();
 
@@ -469,8 +478,12 @@ $(document).ready(function() {
 </script>
 </head>
 <body>
-<h1>FretFind2D</h1>
-<p>
+<header class="site-header">
+    <div class="top">
+        <h1>FretFind<span>2D</span></h1>
+        <a class="repo" href="http://github.com/acspike/FretFind2D">Fork on GitHub</a>
+    </div>
+    <p>
 FretFind2D is a two dimensional fretboard design tool.
 FretFind2D doesn't just calculate fret spacing. 
 It models the entire fretboard, strings and frets, 
@@ -479,34 +492,44 @@ Because of this approach, it can design fretboards for instruments with
 multiple scale lengths and non-parallel frets 
 as well as fretboards for instruments that play just or meantone scales.
 </p>
+</header>
 <div id="fretfind">
-    <dl id="worksheet">
-        <dd>units</dd>
-        <dd>
-            <label><input type="radio" name="units" value="in" checked="checked"/>inches</label><br />
-            <label><input type="radio" name="units" value="cm" />centimeters</label><br />
-            <label><input type="radio" name="units" value="mm" />millimeters</label>
-        </dd>
-        <dd>display</dd>
-        <dd>
-            <label><input type="checkbox" name="showFretboardEdges" id="showFretboardEdges" checked="checked" />show fretboard edges</label><br />
-            <label><input type="checkbox" name="showStrings" id="showStrings" checked="checked" />show strings</label><br />
-            <label><input type="checkbox" name="extendFrets" id="extendFrets" />extend frets to edge</label><br />
-            <label><input type="checkbox" name="showBoundingBox" id="showBoundingBox" />bounding box</label><br />
-            <label><input type="checkbox" name="showMetas" id="showMetas" checked="checked" />show metas</label>
-        </dd>
-        <dd class="help">
+    <div id="worksheet">
+    <section class="card">
+        <h2>Units &amp; display</h2>
+        <dl class="fields">
+            <dt>units</dt>
+            <dd>
+                <div class="seg">
+                    <label><input type="radio" name="units" value="in" checked="checked"/><span>inches</span></label>
+                    <label><input type="radio" name="units" value="cm" /><span>cm</span></label>
+                    <label><input type="radio" name="units" value="mm" /><span>mm</span></label>
+                </div>
+            </dd>
+            <dt>display options</dt>
+            <dd class="checks">
+                <label><input type="checkbox" name="showFretboardEdges" id="showFretboardEdges" checked="checked" />fretboard edges</label>
+                <label><input type="checkbox" name="showStrings" id="showStrings" checked="checked" />strings</label>
+                <label><input type="checkbox" name="extendFrets" id="extendFrets" />extend frets to edge</label>
+                <label><input type="checkbox" name="showBoundingBox" id="showBoundingBox" />bounding box</label>
+                <label><input type="checkbox" name="showMetas" id="showMetas" checked="checked" />metas</label>
+            </dd>
+            <dd class="help">
             Selecting or deselecting any of these options will only affect the display and output files.
             No fret calculations will be affected.
         </dd>
-        <dt>scale length</dt>
+        </dl>
+    </section>
+    <section class="card">
+        <h2>Scale length</h2>
+        <dl class="fields">
         <dd>
             <dl id="length" class="alternative">
                 <dt id="single">single</dt>
                 <dd>
                     <dl>
                         <dt>fundamental scale length</dt>
-                        <dd><input type="text" id="len" value="25" /></dd>
+                        <dd><span class="field"><input type="text" id="len" value="25" /><span class="u">in</span></span></dd>
                         <dd class="help">
                             The scale length is the playing/speaking length of the 
                             string measured from the nut to the bridge. 
@@ -525,7 +548,7 @@ as well as fretboards for instruments that play just or meantone scales.
                 <dd>
                     <dl>
                         <dt>first string scale length</dt>
-                        <dd><input type="text" id="lenF" value="25" /></dd>
+                        <dd><span class="field"><input type="text" id="lenF" value="25" /><span class="u">in</span></span></dd>
                         <dd class="help">
                             The scale length is the playing/speaking length of the 
                             string measured from the nut to the bridge. 
@@ -533,7 +556,7 @@ as well as fretboards for instruments that play just or meantone scales.
                             Enter the actual scale length of the first (traditional high E) string. 
                         </dd>
                         <dt>last string scale length</dt>
-                        <dd><input type="text" id="lenL" value="28" /></dd>
+                        <dd><span class="field"><input type="text" id="lenL" value="28" /><span class="u">in</span></span></dd>
                         <dd class="help">
                             The scale length is the playing/speaking length of the 
                             string measured from the nut to the bridge. 
@@ -647,8 +670,13 @@ Fret  P.D.    Fret  P.D.
                 </dd>
             </dl>
         </dd>
-        <dt>string width at the nut</dt>
-        <dd><input type="text" id="nutWidth" value="1.375" /></dd>
+                </dl>
+    </section>
+    <section class="card">
+        <h2>Fretboard</h2>
+        <dl class="fields">
+<dt>string width at the nut</dt>
+        <dd><span class="field"><input type="text" id="nutWidth" value="1.375" /><span class="u">in</span></span></dd>
         <dd class="help">
             The string width at the nut is the distance along the nut from the center 
             of the first string to the center of the last string.
@@ -660,7 +688,7 @@ Fret  P.D.    Fret  P.D.
         </dd>
 
         <dt>string width at the bridge</dt>
-        <dd><input type="text" id="bridgeWidth" value="2.125" /></dd>
+        <dd><span class="field"><input type="text" id="bridgeWidth" value="2.125" /><span class="u">in</span></span></dd>
         <dd class="help">
             The string width at the bridge is the distance along the bridge from the center 
             of the first string to the center of the last string.            
@@ -709,15 +737,15 @@ Fret  P.D.    Fret  P.D.
         <dd>
             <dl id="overhang" class="alternative">
                 <dt id="equal">equal</dt>
-                <dd><input type="text" id="oE" value="0.09375" /></dd>
+                <dd><span class="field"><input type="text" id="oE" value="0.09375" /><span class="u">in</span></span></dd>
                 <dt id="nutbridge">nut &amp; bridge</dt>
                 <dd>
                     <table>
                     <tr><td>nut</td><td>
-                    <input type="text" id="oN" value="0.09375" />
+                    <span class="field"><input type="text" id="oN" value="0.09375" /><span class="u">in</span></span>
                     </td></tr>
                     <tr><td>bridge</td><td>
-                    <input type="text" id="oB" value="0.09375" />
+                    <span class="field"><input type="text" id="oB" value="0.09375" /><span class="u">in</span></span>
                     </td></tr>
                     </table>
                 </dd>
@@ -726,9 +754,9 @@ Fret  P.D.    Fret  P.D.
                     <table>
                     <tr><td>last</td><td>first</td></tr>
                     <tr><td>
-                    <input type="text" id="oL" value="0.09375" />
+                    <span class="field"><input type="text" id="oL" value="0.09375" /><span class="u">in</span></span>
                     </td><td>
-                    <input type="text" id="oF" value="0.09375" />
+                    <span class="field"><input type="text" id="oF" value="0.09375" /><span class="u">in</span></span>
                     </td></tr>
                     </table>
                 </dd>
@@ -737,14 +765,14 @@ Fret  P.D.    Fret  P.D.
                     <table>
                     <tr><td> </td><td>last</td><td>first</td></tr>
                     <tr><td>nut</td><td>
-                    <input type="text" id="oNL" value="0.09375" />
+                    <span class="field"><input type="text" id="oNL" value="0.09375" /><span class="u">in</span></span>
                     </td><td>
-                    <input type="text" id="oNF" value="0.09375" />
+                    <span class="field"><input type="text" id="oNF" value="0.09375" /><span class="u">in</span></span>
                     </td></tr>
                     <tr><td>bridge</td><td>
-                    <input type="text" id="oBL" value="0.09375" />
+                    <span class="field"><input type="text" id="oBL" value="0.09375" /><span class="u">in</span></span>
                     </td><td>
-                    <input type="text" id="oBF" value="0.09375" />
+                    <span class="field"><input type="text" id="oBF" value="0.09375" /><span class="u">in</span></span>
                     </td></tr>
                     </table>
                 </dd>
@@ -765,7 +793,12 @@ Fret  P.D.    Fret  P.D.
             where the high E string would be on a typical right-handed guitar. 
             The last string is on the far left, where the low E would be found.)
         </dd>
-        <dt>calculation method</dt>
+                </dl>
+    </section>
+    <section class="card">
+        <h2>Scale &amp; frets</h2>
+        <dl class="fields">
+<dt>calculation method</dt>
         <dd>
             <dl id="scale" class="alternative">
                 <dt id="et">equal (root 2)</dt>
@@ -816,7 +849,12 @@ Fret  P.D.    Fret  P.D.
             This is the number of frets you would like FretFind to calculate.
             The number of frets must be an integer. 
         </dd>
-        <dt>number of strings</dt>
+                </dl>
+    </section>
+    <section class="card">
+        <h2>Strings</h2>
+        <dl class="fields">
+<dt>number of strings</dt>
         <dd><input type="text" id="numStrings" value="6" /></dd>
         <dd class="help">
             The number of strings must be an integer. 
@@ -832,15 +870,34 @@ Fret  P.D.    Fret  P.D.
             This step is not important for the Equal calculation method.
             Entering a tuning for the Scala calculation method will very likely result in partial frets.
         </dd>
-    </dl><!-- worksheet -->
-    <div id="diagram"><!-- --></div>
-    <dl id="downloads">
-        <dt>Link</dt><dd><a href="#" id="bookmark">Link to this design</a></dd>
-    </dl>
-    <div id="tables"><!-- --></div>
+            </dl>
+    </section>
+    </div><!-- worksheet -->
+    <div id="output">
+        <div class="row">
+            <section class="card diagram-card">
+                <h2>Preview</h2>
+                <div id="diagram"><!-- --></div>
+                <ul class="legend">
+                    <li><i style="color:#000"></i>strings</li>
+                    <li><i style="color:#00f"></i>fretboard edges</li>
+                    <li><i style="color:#f00"></i>frets, nut &amp; bridge</li>
+                    <li><i style="color:#bbb"></i>metas</li>
+                </ul>
+            </section>
+            <section class="card export-card">
+                <h2>Export</h2>
+                <dl id="downloads">
+                    <dt>Link</dt><dd><a href="#" id="bookmark">Link to this design</a></dd>
+                </dl>
+            </section>
+        </div>
+        <section class="card">
+            <h2>Fret data</h2>
+            <div id="tables"><!-- --></div>
+        </section>
+    </div>
 </div>
 <p class="dev">The latest version in development is available on <a href="https://acspike.github.io/FretFind2D/src/fretfind.html">GitHub</a>.</p>
-<a href="http://github.com/acspike/FretFind2D"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub" /></a>
 </body>
 </html>
-
