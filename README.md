@@ -1,4 +1,4 @@
-# FretFind2D
+# FretFind2D REDUX
 
 FretFind2D is a fretboard designer for microtonal and multi-scaled stringed instruments.
 
