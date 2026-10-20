@@ -6,5 +6,4 @@ The [latest version of FretFind2D](https://acspike.github.io/FretFind2D/src/fret
 
 but... 
 
-My version is here: [FretFind2D_REDUX] (https://https://jtlevy.github.io//FretFind2D/src/fretfind.html)
-
+My version is here: [FretFind2D_REDUX](https://jtlevy.github.io/FretFind2D/src/fretfind.html)
